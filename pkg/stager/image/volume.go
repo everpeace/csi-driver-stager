@@ -2,6 +2,7 @@ package image
 
 import (
 	api "github.com/everpeace/csi-driver-stager/pkg/stager/api/image"
+	"k8s.io/utils/clock"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/everpeace/csi-driver-stager/pkg/stager/util"
@@ -32,9 +33,11 @@ const (
 )
 
 type Volume struct {
+	Clock clock.Clock
+
 	// User defined spec
 	Spec         api.StagerSpec
-	tagGenerator tagGenerator
+	TagGenerator tagGenerator
 
 	// values from PublishVolumeRequest
 	ReadOnly         bool
@@ -47,10 +50,10 @@ type Volume struct {
 	// Status
 	Phase           Phase
 	ProvisionedRoot string
-	imageToPush     string
+	ImageToPush     string
 }
 
-func NewVolume(req *csi.NodePublishVolumeRequest) (*Volume, error) {
+func NewVolume(req *csi.NodePublishVolumeRequest, clock clock.Clock) (*Volume, error) {
 	zlog.Trace().Interface("request", req).Msg("volume.NewVolume called")
 
 	spec, err := api.NewSpec(req.VolumeContext)
@@ -87,8 +90,9 @@ func NewVolume(req *csi.NodePublishVolumeRequest) (*Volume, error) {
 	}
 
 	return &Volume{
+		Clock:            clock,
 		Spec:             *spec,
-		tagGenerator:     tagGenerator,
+		TagGenerator:     tagGenerator,
 		VolumeID:         volumeID,
 		TargetPath:       targetPath,
 		DockerConfigJson: dockerConfigJson,

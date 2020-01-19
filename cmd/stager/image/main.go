@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/utils/clock"
+
 	"github.com/everpeace/csi-driver-stager/pkg/stager/driver/imagedriver"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -75,7 +77,7 @@ func handle() {
 	driver := imagedriver.NewDriver(
 		Version, *nodeID, *endpoint,
 		*buildahPath, *buildahTimeout, *buildahGcTimeout, *buildahGcPeriod,
-		kubeClient,
+		kubeClient, clock.RealClock{},
 	)
 
 	if err := driver.Run(); err != nil {

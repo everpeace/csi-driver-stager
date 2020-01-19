@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/utils/clock"
+
 	"github.com/everpeace/csi-driver-stager/pkg/stager/image"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -21,6 +23,7 @@ const (
 )
 
 type Driver struct {
+	clock        clock.Clock
 	vendorVesion string
 	endpoint     string
 	nodeID       string
@@ -33,7 +36,11 @@ type Driver struct {
 	statuses map[string]*image.Volume
 }
 
-func NewDriver(vendorVesion, nodeID, endpoint, buildahPath string, buildahTimeout, buildahGcTimeout, buildahGcPeriod time.Duration, kubeClient kubernetes.Interface) *Driver {
+func NewDriver(
+	vendorVesion, nodeID, endpoint,
+	buildahPath string, buildahTimeout, buildahGcTimeout, buildahGcPeriod time.Duration,
+	kubeClient kubernetes.Interface,
+	clock clock.Clock) *Driver {
 	zlog.Debug().
 		Str("Driver", DriverName).
 		Str("VendorVersion", vendorVesion).
@@ -41,6 +48,7 @@ func NewDriver(vendorVesion, nodeID, endpoint, buildahPath string, buildahTimeou
 		Msg("initialing driver")
 
 	return &Driver{
+		clock:        clock,
 		vendorVesion: vendorVesion,
 		endpoint:     endpoint,
 		kubeClient:   kubeClient,

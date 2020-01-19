@@ -8,7 +8,6 @@ import (
 )
 
 const (
-	StageOutEnabledKey         = "stage-out/enabled"
 	StageOutImageRepoKey       = "stage-out/repository"
 	StageOutTagGeneratorKey    = "stage-out/tagGenerator"
 	StageOutTagGeneratorArgKey = "stage-out/tagGeneratorArg"
@@ -44,6 +43,10 @@ func NewStageOutSpec(context map[string]string) (StageOutSpec, error) {
 
 	if tgName, ok := context[StageOutTagGeneratorKey]; ok {
 		spec.TagGenerator = tgName
+	}
+
+	if tgArg, ok := context[StageOutTagGeneratorArgKey]; ok {
+		spec.TagGeneratorArg = tgArg
 	}
 
 	if squashStr, ok := context[StageOutSquashKey]; ok {

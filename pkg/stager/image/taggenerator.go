@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	gotemplate "text/template"
-	"time"
 
 	"github.com/pkg/errors"
 )
@@ -17,7 +16,7 @@ func newTagGenerator(name string) (tagGenerator, error) {
 	switch name {
 	case "fixed":
 		return &FuncTagGenerator{fixedTGFunc}, nil
-	case "volumeId":
+	case "volumeId", "volumdID":
 		return &FuncTagGenerator{volumeIdTGFunc}, nil
 	case "timestamp":
 		return &FuncTagGenerator{timestampTGFunc}, nil
@@ -25,7 +24,7 @@ func newTagGenerator(name string) (tagGenerator, error) {
 		return &FuncTagGenerator{podNameTGFunc}, nil
 	case "podNamespace":
 		return &FuncTagGenerator{podNamespaceTGFunc}, nil
-	case "podUid":
+	case "podUid", "podUID":
 		return &FuncTagGenerator{podUIDTGFunc}, nil
 	case "podServiceAccount":
 		return &FuncTagGenerator{podServiceAccountTGFunc}, nil
@@ -53,7 +52,7 @@ func fixedTGFunc(volume *Volume) (string, error) {
 }
 
 func timestampTGFunc(volume *Volume) (string, error) {
-	return fmt.Sprintf("%d", time.Now().UTC().Unix()), nil
+	return fmt.Sprintf("%d", volume.Clock.Now().UTC().Unix()), nil
 }
 
 func podNameTGFunc(volume *Volume) (string, error) {
@@ -74,10 +73,13 @@ func podServiceAccountTGFunc(volume *Volume) (string, error) {
 
 func templateTGFunc(volume *Volume) (string, error) {
 	context := map[string]string{
+		"timestamp":         fmt.Sprintf("%d", volume.Clock.Now().UTC().Unix()),
 		"volumeId":          volume.VolumeID,
+		"volumeID":          volume.VolumeID,
 		"podNamespace":      volume.PodInfo.Namespace,
 		"podName":           volume.PodInfo.Name,
 		"podUid":            string(volume.PodInfo.UID),
+		"podUID":            string(volume.PodInfo.UID),
 		"podServiceAccount": volume.PodInfo.ServiceAccountName,
 	}
 

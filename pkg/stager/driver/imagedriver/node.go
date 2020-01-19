@@ -40,7 +40,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 }
 
 func (d *Driver) initVolume(req *csi.NodePublishVolumeRequest) (*image.Volume, error) {
-	vol, err := image.NewVolume(req)
+	vol, err := image.NewVolume(req, d.clock)
 	if err != nil {
 		return nil, err
 	}

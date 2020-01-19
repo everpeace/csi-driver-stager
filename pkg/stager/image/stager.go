@@ -108,12 +108,12 @@ func (stager *Stager) StageOut(vol *Volume) error {
 			vol.Phase = PhaseContainerImagePushed
 			return stager.StageOut(vol)
 		}
-		generatedTag, err := vol.tagGenerator.Generate(vol)
+		generatedTag, err := vol.TagGenerator.Generate(vol)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate image tag to stage out")
 		}
-		vol.imageToPush = fmt.Sprintf("%s:%s", vol.Spec.StageOutSpec.ImageRepository, generatedTag)
-		if err := stager.Buildah.Commit(vol.VolumeID, vol.imageToPush, vol.Spec.StageOutSpec.Squash); err != nil {
+		vol.ImageToPush = fmt.Sprintf("%s:%s", vol.Spec.StageOutSpec.ImageRepository, generatedTag)
+		if err := stager.Buildah.Commit(vol.VolumeID, vol.ImageToPush, vol.Spec.StageOutSpec.Squash); err != nil {
 			return errors.Wrapf(err, "can't commit Buildah container(name=%s)", vol.VolumeID)
 		}
 		vol.Phase = PhaseContainerCommitted
@@ -125,8 +125,8 @@ func (stager *Stager) StageOut(vol *Volume) error {
 		vol.Phase = PhaseContainerUnMounted
 		return stager.StageOut(vol)
 	case PhaseContainerUnMounted:
-		if err := stager.Buildah.Push(vol.VolumeID, vol.imageToPush, vol.DockerConfigJson, vol.Spec.StageOutSpec.TlsVerify); err != nil {
-			return errors.Wrapf(err, "can't push image(=%s)", vol.imageToPush)
+		if err := stager.Buildah.Push(vol.VolumeID, vol.ImageToPush, vol.DockerConfigJson, vol.Spec.StageOutSpec.TlsVerify); err != nil {
+			return errors.Wrapf(err, "can't push image(=%s)", vol.ImageToPush)
 		}
 		vol.Phase = PhaseContainerImagePushed
 		return stager.StageOut(vol)
