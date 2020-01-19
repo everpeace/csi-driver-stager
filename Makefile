@@ -20,7 +20,7 @@ setup:
 
 .PHONY: fmt
 fmt:
-	goimports -w cmd/ pkg/
+	goimports -w cmd/ pkg/ main.go
 
 .PHONY: lint
 lint: fmt
@@ -28,7 +28,7 @@ lint: fmt
 
 .PHONY: build
 build: fmt lint
-	go build -tags netgo -installsuffix netgo $(LDFLAGS) -o $(OUTDIR)/$(NAME) cmd/stager/image/main.go
+	go build -tags netgo -installsuffix netgo $(LDFLAGS) -o $(OUTDIR)/$(NAME) main.go
 
 .PHONY: test
 test: fmt lint
