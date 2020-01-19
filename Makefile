@@ -16,6 +16,7 @@ export CGO_ENABLED=0
 .PHONY: setup
 setup:
 	go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
+	go get -u golang.org/x/tools/cmd/goimports
 
 .PHONY: fmt
 fmt:
@@ -32,6 +33,23 @@ build: fmt lint
 .PHONY: test
 test: fmt lint
 	go test  ./...
+
+test-debug: fmt lint
+	dlv test --headless --listen=:2345 --api-version=2 $(WHAT)
+
+.PHONY: devcontainer clean-devcontainer
+devcontainer:
+	cd .devcontainer && docker-compose up -d
+clean-devcontainer:
+	cd .devcontainer && docker-compose down -v
+
+.PHONY: test-in-devcontainer
+test-in-devcontainer: devcontainer
+	cd .devcontainer && docker-compose exec workspace make test
+
+.PHONY: test-debug-in-devcontainer
+test-debug-in-devcontainer: devcontainer
+	cd .devcontainer && docker-compose exec workspace make test-debug WHAT=$(WHAT)
 
 .PHONY: clean
 clean:
