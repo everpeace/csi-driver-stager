@@ -106,3 +106,12 @@ func (d *Driver) Run() error {
 		Msg("listening for connections on address")
 	return d.srv.Serve(listener)
 }
+
+func (d *Driver) Shutdown() {
+	zlog.Info().
+		Str("Driver", DriverName).
+		Str("VendorVersion", d.vendorVesion).
+		Str("NodeID", d.nodeID).
+		Msg("shutting down driver gracefully")
+	d.srv.GracefulStop()
+}
