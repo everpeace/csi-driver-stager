@@ -1,4 +1,4 @@
-package volume
+package image
 
 import (
 	"fmt"
@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	api "github.com/everpeace/csi-driver-stager/pkg/stager/api/image"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/everpeace/csi-driver-stager/pkg/stager/image/buildah"
@@ -20,26 +22,25 @@ import (
 
 var (
 	testDriverName = "test.image.stager.csi.k8s.io"
-	bldah          *buildah.Client
+	stager         *Stager
 )
 
 func TestImageStagerVolume(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Image Stager Volume Test")
+	RunSpecs(t, "Image Stager Test")
 }
 
 var _ = BeforeSuite(func() {
 	zlog.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	bldah = &buildah.Client{
-		DriverName:           testDriverName,
-		ExecPath:             "buildah",
-		Args:                 []string{},
-		Timeout:              0,
-		GarbageCollectPeriod: 0,
+	stager = &Stager{
+		Buildah: &buildah.Client{
+			DriverName: testDriverName,
+			ExecPath:   "buildah",
+		},
 	}
 })
 
-var _ = Describe("Stage-In(Publish) & Stage-Out(UnPublish)", func() {
+var _ = Describe("Stage-In(StageIn) & Stage-Out(StageOut)", func() {
 	var volumeID string
 	var targetPath string
 
@@ -55,15 +56,13 @@ var _ = Describe("Stage-In(Publish) & Stage-Out(UnPublish)", func() {
 		Expect(exec.Command("buildah", "rmi", "--all").Run()).NotTo(HaveOccurred())
 	})
 
-	Context("Stage-In(Publish)", func() {
+	Context("Stage-In(StageIn)", func() {
 		It("should mount targetPath to pulled container", func() {
-			vol, err := New(&csi.NodePublishVolumeRequest{
+			vol, err := NewVolume(&csi.NodePublishVolumeRequest{
 				VolumeId:   volumeID,
 				TargetPath: targetPath,
 				VolumeContext: map[string]string{
-					StageInImageKey:                   "busybox",
-					StageInTlsVerifyKey:               "true",
-					StageOutEnabledKey:                "false",
+					api.StageInImageKey:               "busybox",
 					util.PodInfoNamespaceKey:          "test-ns",
 					util.PodInfoNameKey:               "test-name",
 					util.PodInfoUIDKey:                volumeID,
@@ -72,7 +71,7 @@ var _ = Describe("Stage-In(Publish) & Stage-Out(UnPublish)", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			err = vol.Publish(bldah)
+			err = stager.StageIn(vol)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vol.Phase).Should(Equal(PhasePublished))
 
@@ -85,14 +84,12 @@ var _ = Describe("Stage-In(Publish) & Stage-Out(UnPublish)", func() {
 		})
 
 		It("should rollback when error in stage-in", func() {
-			vol, err := New(&csi.NodePublishVolumeRequest{
+			vol, err := NewVolume(&csi.NodePublishVolumeRequest{
 				VolumeId: volumeID,
 				// this causes mount error in stage-in
 				TargetPath: filepath.Join("/tmp", "not-existed"),
 				VolumeContext: map[string]string{
-					StageInImageKey:                   "busybox",
-					StageInTlsVerifyKey:               "true",
-					StageOutEnabledKey:                "false",
+					api.StageInImageKey:               "busybox",
 					util.PodInfoNamespaceKey:          "test-ns",
 					util.PodInfoNameKey:               "test-name",
 					util.PodInfoUIDKey:                volumeID,
@@ -101,29 +98,27 @@ var _ = Describe("Stage-In(Publish) & Stage-Out(UnPublish)", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			err = vol.Publish(bldah)
+			err = stager.StageIn(vol)
 			Expect(err).To(HaveOccurred())
 			Expect(vol.Phase).Should(Equal(PhaseContainerMounted))
 
-			err = vol.RollBackPublish(bldah)
+			err = stager.RollBackStageIn(vol)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vol.Phase).Should(Equal(PhaseInitState))
 		})
 	})
-	Context("Stage-Out(UnPublish)", func() {
+	Context("Stage-Out(StageOut)", func() {
 		It("should pushed modified container to image", func() {
 			stageOutRepo := "registory:5000/misc/misc"
-			vol, err := New(&csi.NodePublishVolumeRequest{
+			vol, err := NewVolume(&csi.NodePublishVolumeRequest{
 				VolumeId:   volumeID,
 				TargetPath: targetPath,
 				VolumeContext: map[string]string{
-					StageInImageKey:                   "busybox",
-					StageInTlsVerifyKey:               "true",
-					StageOutEnabledKey:                "true",
-					StageOutImageRepoKey:              stageOutRepo,
-					StageOutTagGeneratorKey:           "poduid",
-					StageOutSquashKey:                 "false",
-					StageOutTlsVerifyKey:              "false",
+					api.StageInImageKey:               "busybox",
+					api.StageOutImageRepoKey:          stageOutRepo,
+					api.StageOutTagGeneratorKey:       "podUid",
+					api.StageOutSquashKey:             "false",
+					api.StageOutTlsVerifyKey:          "false",
 					util.PodInfoNamespaceKey:          "test-ns",
 					util.PodInfoNameKey:               "test-name",
 					util.PodInfoUIDKey:                volumeID,
@@ -132,7 +127,7 @@ var _ = Describe("Stage-In(Publish) & Stage-Out(UnPublish)", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			// Stage-In first
-			err = vol.Publish(bldah)
+			err = stager.StageIn(vol)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vol.Phase).Should(Equal(PhasePublished))
 
@@ -145,7 +140,7 @@ var _ = Describe("Stage-In(Publish) & Stage-Out(UnPublish)", func() {
 			)).NotTo(HaveOccurred())
 
 			// Stage-out
-			err = vol.UnPublish(bldah)
+			err = stager.StageOut(vol)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vol.Phase).Should(Equal(PhaseUnPublished))
 			expectedImageToPush := fmt.Sprintf("%s:%s", stageOutRepo, volumeID)

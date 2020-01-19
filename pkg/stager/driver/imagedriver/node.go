@@ -1,11 +1,13 @@
-package image
+package imagedriver
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/everpeace/csi-driver-stager/pkg/stager/image"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/everpeace/csi-driver-stager/pkg/stager/image/volume"
+
 	"github.com/pkg/errors"
 	zlog "github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
@@ -23,29 +25,29 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	}
 
 	// publish
-	if err := vol.Publish(d.buildah); err != nil {
+	if err := d.stager.StageIn(vol); err != nil {
 		zlog.Error().Err(err).Interface("volume", vol).Msg("publishing volume failed. rolling back the publish process.")
 
-		if errRollback := vol.RollBackPublish(d.buildah); errRollback != nil {
+		if errRollback := d.stager.RollBackStageIn(vol); errRollback != nil {
 			zlog.Error().Err(err).Interface("volume", vol).Msg("rolling back the publish process failed.")
 			return nil, status.Error(codes.Internal, err.Error())
 		}
-		d.deleteVolume(vol.Spec.VolumeID)
+		d.deleteVolume(vol.VolumeID)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
-func (d *Driver) initVolume(req *csi.NodePublishVolumeRequest) (*volume.Volume, error) {
-	vol, err := volume.New(req)
+func (d *Driver) initVolume(req *csi.NodePublishVolumeRequest) (*image.Volume, error) {
+	vol, err := image.NewVolume(req)
 	if err != nil {
 		return nil, err
 	}
-	if v, ok := d.statuses[vol.Spec.VolumeID]; ok {
-		return nil, errors.Errorf("volumeID=%s has not been fully unpublished. phase=%s", v.Spec.VolumeID, v.Phase)
+	if v, ok := d.statuses[vol.VolumeID]; ok {
+		return nil, errors.Errorf("volumeID=%s has not been fully unpublished. phase=%s", v.VolumeID, v.Phase)
 	}
-	d.statuses[vol.Spec.VolumeID] = vol
+	d.statuses[vol.VolumeID] = vol
 	return vol, nil
 }
 
@@ -53,7 +55,7 @@ func (d *Driver) deleteVolume(volumeID string) {
 	delete(d.statuses, volumeID)
 }
 
-func (d *Driver) getVolume(volumeID string) *volume.Volume {
+func (d *Driver) getVolume(volumeID string) *image.Volume {
 	return d.statuses[volumeID]
 }
 
@@ -69,7 +71,7 @@ func (d *Driver) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublish
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("volumeID=%s is not initialized", volumeID))
 	}
 
-	if err := vol.UnPublish(d.buildah); err != nil {
+	if err := d.stager.StageOut(vol); err != nil {
 		zlog.Error().Err(err).Interface("volume", vol).Msg("unpublishing volume failed")
 		return nil, status.Error(codes.Internal, err.Error())
 	}

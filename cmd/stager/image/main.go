@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/everpeace/csi-driver-stager/pkg/stager/image"
+	"github.com/everpeace/csi-driver-stager/pkg/stager/driver/imagedriver"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -23,11 +23,13 @@ var (
 	endpoint  = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
 	nodeID    = flag.String("nodeid", "", "node id")
 
-	buildahPath     = flag.String("buildahpath", "/bin/buildah", "buildah binary path")
-	buildahTimeout  = flag.Duration("buildahtimeout", 10*time.Minute, "timeout to execute buildah command.")
-	buildahGcPeriod = flag.Duration("buildahgcperiod", 24*time.Hour, "period for buildah garbage collection")
-	masterURL       = flag.String("masterURL", "", "kubernetes master url")
-	kubeconfig      = flag.String("kubeconfig", "", "kubeconfig path")
+	buildahPath      = flag.String("buildahpath", "/bin/buildah", "buildah binary path")
+	buildahTimeout   = flag.Duration("buildahtimeout", 10*time.Minute, "timeout to execute buildah command.")
+	buildahGcTimeout = flag.Duration("buildahgctimeout", 60*time.Minute, "timeout to execute buildah gc command.")
+	buildahGcPeriod  = flag.Duration("buildahgcperiod", 24*time.Hour, "period for performing buildah gc")
+
+	masterURL  = flag.String("masterURL", "", "kubernetes master url")
+	kubeconfig = flag.String("kubeconfig", "", "kubeconfig path")
 )
 
 func initZeroLog() {
@@ -49,7 +51,7 @@ func main() {
 	initZeroLog()
 
 	zlog.Info().
-		Str("Driver", image.DriverName).
+		Str("Driver", imagedriver.DriverName).
 		Str("Version", Version).
 		Str("Revision", Revision).
 		Str("NodeID", *nodeID).
@@ -70,7 +72,11 @@ func handle() {
 		panic(err.Error())
 	}
 
-	driver := image.NewDriver(Version, *nodeID, *endpoint, *buildahPath, *buildahTimeout, *buildahGcPeriod, kubeClient)
+	driver := imagedriver.NewDriver(
+		Version, *nodeID, *endpoint,
+		*buildahPath, *buildahTimeout, *buildahGcTimeout, *buildahGcPeriod,
+		kubeClient,
+	)
 
 	if err := driver.Run(); err != nil {
 		zlog.Err(err)

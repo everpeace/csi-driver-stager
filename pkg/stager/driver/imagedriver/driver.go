@@ -1,4 +1,4 @@
-package image
+package imagedriver
 
 import (
 	"context"
@@ -6,9 +6,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/everpeace/csi-driver-stager/pkg/stager/image"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/everpeace/csi-driver-stager/pkg/stager/image/buildah"
-	"github.com/everpeace/csi-driver-stager/pkg/stager/image/volume"
 	csicommon "github.com/kubernetes-csi/drivers/pkg/csi-common"
 	zlog "github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
@@ -27,12 +28,12 @@ type Driver struct {
 	srv        *grpc.Server
 	kubeClient kubernetes.Interface
 
-	buildah *buildah.Client
+	stager *image.Stager
 
-	statuses map[string]*volume.Volume
+	statuses map[string]*image.Volume
 }
 
-func NewDriver(vendorVesion, nodeID, endpoint, buildahPath string, buildahTimeout, garbageCollectPeriod time.Duration, kubeClient kubernetes.Interface) *Driver {
+func NewDriver(vendorVesion, nodeID, endpoint, buildahPath string, buildahTimeout, buildahGcTimeout, buildahGcPeriod time.Duration, kubeClient kubernetes.Interface) *Driver {
 	zlog.Debug().
 		Str("Driver", DriverName).
 		Str("VendorVersion", vendorVesion).
@@ -43,10 +44,14 @@ func NewDriver(vendorVesion, nodeID, endpoint, buildahPath string, buildahTimeou
 		vendorVesion: vendorVesion,
 		endpoint:     endpoint,
 		kubeClient:   kubeClient,
-		buildah: &buildah.Client{
-			DriverName: DriverName,
-			ExecPath:   buildahPath,
-			Timeout:    buildahTimeout,
+		stager: &image.Stager{
+			Buildah: &buildah.Client{
+				DriverName: DriverName,
+				ExecPath:   buildahPath,
+				Timeout:    buildahTimeout,
+				GcTimeout:  buildahGcTimeout,
+			},
+			GcPeriod: buildahGcPeriod,
 		},
 	}
 }
@@ -59,7 +64,7 @@ func (d *Driver) Run() error {
 		Msg("starting driver")
 
 	stop := make(chan struct{})
-	go func() { d.buildah.StartGarbageCollection(stop) }()
+	go func() { d.stager.StartGarbageCollection(stop) }()
 
 	scheme, addr, err := csicommon.ParseEndpoint(d.endpoint)
 	if err != nil {

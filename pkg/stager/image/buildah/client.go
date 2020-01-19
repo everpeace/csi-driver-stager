@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
@@ -23,14 +21,18 @@ var (
 )
 
 type Client struct {
-	DriverName           string
-	ExecPath             string
-	Args                 []string
-	Timeout              time.Duration
-	GarbageCollectPeriod time.Duration
+	DriverName string
+	ExecPath   string
+	Args       []string
+	Timeout    time.Duration
+	GcTimeout  time.Duration
 }
 
 func (b *Client) runCmd(args []string) ([]byte, error) {
+	return b.runCmdWithTimeout(args, b.Timeout)
+}
+
+func (b *Client) runCmdWithTimeout(args []string, runTimeout time.Duration) ([]byte, error) {
 	execPath := b.ExecPath
 	actualArgs := append(b.Args, args...)
 
@@ -50,7 +52,7 @@ func (b *Client) runCmd(args []string) ([]byte, error) {
 
 	// Start a timer
 	timeout := make(<-chan time.Time)
-	if b.Timeout > 0 {
+	if runTimeout > 0 {
 		timeout = time.After(b.Timeout)
 	}
 
@@ -58,7 +60,7 @@ func (b *Client) runCmd(args []string) ([]byte, error) {
 	case <-timeout:
 		// Timeout happened first, kill the process and print a message.
 		_ = cmd.Process.Kill()
-		return buf.Bytes(), errors.Errorf("command timeout after %v", b.Timeout)
+		return buf.Bytes(), errors.Errorf("command timeout after %v", runTimeout)
 	case err := <-done:
 		output := buf.Bytes()
 		if err != nil {
@@ -191,7 +193,7 @@ func (b *Client) CreateDockerAuth(containerName, dockerConfigJson string) (strin
 	file, err := ioutil.TempFile("", fmt.Sprintf("%s-%s-", b.DriverName, containerName))
 	cleanUpAuthFile := func() {
 		if err := os.Remove(file.Name()); err != nil {
-			glog.Errorf("can't delete %s: %s", file.Name(), err.Error())
+			zlog.Error().Err(err).Str("file", file.Name()).Msg("can't delete a file")
 		}
 	}
 
@@ -210,19 +212,12 @@ func (b *Client) CreateDockerAuth(containerName, dockerConfigJson string) (strin
 	return file.Name(), cleanUpAuthFile, nil
 }
 
-func (b *Client) garbageCollectOnce() {
-	zlog.Info().Msg("collecting builadh garbage")
-	args := []string{"rmi", "-p"}
-	_, _ = b.runCmd(args)
-	zlog.Info().Msg("done collecting builadh garbage")
-}
-
-func (b *Client) StartGarbageCollection(stop chan struct{}) {
-	if b.GarbageCollectPeriod == 0 {
-		zlog.Info().Msg("builadh garbage collector disabled")
+func (b *Client) GarbageCollectOnce() {
+	zlog.Info().Dur("timeout", b.GcTimeout).Msg("collecting builadh garbage")
+	out, err := b.runCmdWithTimeout([]string{"rmi", "-p"}, b.GcTimeout)
+	if err != nil {
+		zlog.Error().Err(err).Str("output", string(out)).Msg("failed collecting buildah garbage")
 		return
 	}
-	zlog.Info().Msg("starting builadh garbage collector")
-	wait.Until(b.garbageCollectOnce, b.GarbageCollectPeriod, stop)
-	zlog.Info().Msg("stopped builadh garbage collector")
+	zlog.Info().Dur("timeout", b.GcTimeout).Msg("done collecting buildah garbage")
 }

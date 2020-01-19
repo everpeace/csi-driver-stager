@@ -19,7 +19,7 @@ type PodInfo struct {
 	UID                types.UID
 }
 
-func PodInfoFrom(context map[string]string) (PodInfo, error) {
+func NewPodInfo(context map[string]string) (PodInfo, error) {
 	podInfo := PodInfo{}
 
 	podNamespace, ok := context[PodInfoNamespaceKey]
