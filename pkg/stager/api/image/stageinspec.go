@@ -17,18 +17,17 @@ type StageInSpec struct {
 	Image     string
 }
 
-func NewStageInSpec(context map[string]string) (StageInSpec, error) {
+func NewStageInSpec(context map[string]string, defaultStageInImage string) (StageInSpec, error) {
 	zlog.Trace().Interface("context", context).Msg("NewStageInSpec called")
 
 	// prepare defaults
 	spec := StageInSpec{}
+	spec.Image = defaultStageInImage
 	spec.TlsVerify = true
 
-	image, ok := context[StageInImageKey]
-	if !ok {
-		return spec, errors.Errorf("it must specify %s", StageInImageKey)
+	if image, ok := context[StageInImageKey]; ok {
+		spec.Image = image
 	}
-	spec.Image = image
 
 	if tlsVerifyStr, ok := context[StageInTlsVerifyKey]; ok {
 		tlsVerify, err := strconv.ParseBool(tlsVerifyStr)

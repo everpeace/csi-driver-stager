@@ -53,10 +53,10 @@ type Volume struct {
 	ImageToPush     string
 }
 
-func NewVolume(req *csi.NodePublishVolumeRequest, clock clock.Clock) (*Volume, error) {
+func NewVolume(req *csi.NodePublishVolumeRequest, clock clock.Clock, defaultStageInImage string) (*Volume, error) {
 	zlog.Trace().Interface("request", req).Msg("volume.NewVolume called")
 
-	spec, err := api.NewSpec(req.VolumeContext)
+	spec, err := api.NewSpec(req.VolumeContext, defaultStageInImage)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't load stager spec")
 	}

@@ -16,13 +16,13 @@ var (
 )
 
 type CmdOptions struct {
-	LogPretty  bool
-	Loglevel   string
-	Endpoint   string
-	NodeID     string
-	MasterURL  string
-	Kubeconfig string
-	Image      ImageCmdOptions
+	LogPretty bool
+	Loglevel  string
+	Endpoint  string
+	NodeID    string
+	//MasterURL  string
+	//Kubeconfig string
+	Image ImageCmdOptions
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -47,8 +47,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&Options.Loglevel, "loglevel", "info", "sets log level")
 	rootCmd.PersistentFlags().StringVar(&Options.Endpoint, "endpoint", "unix://tmp/csi.sock", "CSI Endpoint")
 	rootCmd.PersistentFlags().StringVar(&Options.NodeID, "nodeid", "", "node id")
-	rootCmd.PersistentFlags().StringVar(&Options.MasterURL, "masterURL", "", "kubernetes master url")
-	rootCmd.PersistentFlags().StringVar(&Options.Kubeconfig, "kubeconfig", "", "kubeconfig path")
+	//rootCmd.PersistentFlags().StringVar(&Options.MasterURL, "masterURL", "", "kubernetes master url")
+	//rootCmd.PersistentFlags().StringVar(&Options.Kubeconfig, "kubeconfig", "", "kubeconfig path")
 }
 
 func initZeroLog() {

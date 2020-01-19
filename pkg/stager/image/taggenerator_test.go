@@ -23,7 +23,6 @@ var _ = Describe("Taggenerator", func() {
 			VolumeId:   volumeID,
 			TargetPath: targetPath,
 			VolumeContext: map[string]string{
-				api.StageInImageKey:               "busybox",
 				api.StageOutImageRepoKey:          "test",
 				api.StageOutTagGeneratorKey:       generatorName,
 				api.StageOutTagGeneratorArgKey:    generatorArg,
@@ -32,7 +31,7 @@ var _ = Describe("Taggenerator", func() {
 				util.PodInfoUIDKey:                volumeID,
 				util.PodInfoServiceAccountNameKey: "test-sa",
 			},
-		}, fakeClock)
+		}, fakeClock, "busybox:latest")
 	}
 
 	BeforeEach(func() {

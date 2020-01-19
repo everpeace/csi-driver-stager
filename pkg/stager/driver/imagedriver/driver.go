@@ -33,11 +33,12 @@ type Driver struct {
 
 	stager *image.Stager
 
-	statuses map[string]*image.Volume
+	defaultStageInImage string
+	statuses            map[string]*image.Volume
 }
 
 func NewDriver(
-	vendorVesion, nodeID, endpoint,
+	vendorVesion, nodeID, endpoint, defaultStageInImage string,
 	buildahPath string, buildahTimeout, buildahGcTimeout, buildahGcPeriod time.Duration,
 	kubeClient kubernetes.Interface,
 	clock clock.Clock) *Driver {
@@ -48,10 +49,12 @@ func NewDriver(
 		Msg("initialing driver")
 
 	return &Driver{
-		clock:        clock,
-		vendorVesion: vendorVesion,
-		endpoint:     endpoint,
-		kubeClient:   kubeClient,
+		clock:               clock,
+		vendorVesion:        vendorVesion,
+		endpoint:            endpoint,
+		nodeID:              nodeID,
+		kubeClient:          kubeClient,
+		defaultStageInImage: defaultStageInImage,
 		stager: &image.Stager{
 			Buildah: &buildah.Client{
 				DriverName: DriverName,
@@ -76,20 +79,20 @@ func (d *Driver) Run() error {
 
 	scheme, addr, err := csicommon.ParseEndpoint(d.endpoint)
 	if err != nil {
-		zlog.Err(err)
+		zlog.Error().Err(err).Msg("")
 		os.Exit(1)
 	}
 
 	listener, err := net.Listen(scheme, addr)
 	if err != nil {
-		zlog.Err(err)
+		zlog.Error().Err(err).Msg("")
 		os.Exit(1)
 	}
 
 	logErr := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		resp, err := handler(ctx, req)
 		if err != nil {
-			zlog.Err(err)
+			zlog.Error().Err(err).Msg("")
 		}
 		return resp, err
 	}

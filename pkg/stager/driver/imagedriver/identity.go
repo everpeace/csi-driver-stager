@@ -10,7 +10,8 @@ import (
 var _ csi.IdentityServer = &Driver{}
 
 func (d *Driver) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
-	zlog.Trace().Interface("request", req).Msg("GetPluginInfo called")
+	logger := zlog.With().Str("CSIOperation", "GetPluginInfo").Logger()
+	logger.Trace().Interface("request", req).Msg("method called with the request")
 	resp := &csi.GetPluginInfoResponse{
 		Name:          DriverName,
 		VendorVersion: d.vendorVesion,
@@ -19,13 +20,14 @@ func (d *Driver) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoReques
 }
 
 func (d *Driver) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
-	zlog.Trace().Interface("request", req).Msg("GetPluginCapabilities called")
+	logger := zlog.With().Str("CSIOperation", "GetPluginCapabilities").Logger()
+	logger.Trace().Interface("request", req).Msg("method called with the request")
 	resp := &csi.GetPluginCapabilitiesResponse{
 		Capabilities: []*csi.PluginCapability{
 			{
 				Type: &csi.PluginCapability_Service_{
 					Service: &csi.PluginCapability_Service{
-						Type: csi.PluginCapability_Service_UNKNOWN,
+						Type: csi.PluginCapability_Service_VOLUME_ACCESSIBILITY_CONSTRAINTS,
 					},
 				},
 			},
@@ -35,6 +37,7 @@ func (d *Driver) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCa
 }
 
 func (d *Driver) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
-	zlog.Trace().Interface("request", req).Msg("Probe called")
+	logger := zlog.With().Str("CSIOperation", "Probe").Logger()
+	logger.Trace().Interface("request", req).Msg("method called with the request")
 	return &csi.ProbeResponse{}, nil
 }

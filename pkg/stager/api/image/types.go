@@ -9,10 +9,10 @@ type StagerSpec struct {
 	StageOutSpec StageOutSpec
 }
 
-func NewSpec(context map[string]string) (*StagerSpec, error) {
+func NewSpec(context map[string]string, defaultStageInImage string) (*StagerSpec, error) {
 	zlog.Trace().Interface("context", context).Msg("NewSpec called")
 
-	stageInSpec, err := NewStageInSpec(context)
+	stageInSpec, err := NewStageInSpec(context, defaultStageInImage)
 	if err != nil {
 		return nil, err
 	}

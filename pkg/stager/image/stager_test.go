@@ -47,13 +47,12 @@ var _ = Describe("Stager", func() {
 				VolumeId:   volumeID,
 				TargetPath: targetPath,
 				VolumeContext: map[string]string{
-					api.StageInImageKey:               "busybox",
 					util.PodInfoNamespaceKey:          "test-ns",
 					util.PodInfoNameKey:               "test-name",
 					util.PodInfoUIDKey:                volumeID,
 					util.PodInfoServiceAccountNameKey: "test-sa",
 				},
-			}, fakeClock)
+			}, fakeClock, "busybox:latest")
 			Expect(err).NotTo(HaveOccurred())
 
 			err = stager.StageIn(vol)
@@ -74,13 +73,12 @@ var _ = Describe("Stager", func() {
 				// this causes mount error in stage-in
 				TargetPath: filepath.Join("/tmp", "not-existed"),
 				VolumeContext: map[string]string{
-					api.StageInImageKey:               "busybox",
 					util.PodInfoNamespaceKey:          "test-ns",
 					util.PodInfoNameKey:               "test-name",
 					util.PodInfoUIDKey:                volumeID,
 					util.PodInfoServiceAccountNameKey: "test-sa",
 				},
-			}, fakeClock)
+			}, fakeClock, "busybox:latest")
 			Expect(err).NotTo(HaveOccurred())
 
 			err = stager.StageIn(vol)
@@ -99,7 +97,6 @@ var _ = Describe("Stager", func() {
 				VolumeId:   volumeID,
 				TargetPath: targetPath,
 				VolumeContext: map[string]string{
-					api.StageInImageKey:               "busybox",
 					api.StageOutImageRepoKey:          stageOutRepo,
 					api.StageOutTagGeneratorKey:       "podUid",
 					api.StageOutSquashKey:             "false",
@@ -109,7 +106,7 @@ var _ = Describe("Stager", func() {
 					util.PodInfoUIDKey:                volumeID,
 					util.PodInfoServiceAccountNameKey: "test-sa",
 				},
-			}, fakeClock)
+			}, fakeClock, "busybox:latest")
 			Expect(err).NotTo(HaveOccurred())
 			// Stage-In first
 			err = stager.StageIn(vol)

@@ -53,3 +53,6 @@ RUN dnf install --setopt=install_weak_deps=False --best -y golang-1.13.5 \
 
 ENV GO111MODULE=on
 ENV PATH=${GOPATH}/bin:${PATH}
+#
+# Install csi-sanity cli
+RUN go get github.com/kubernetes-csi/csi-test/v3/cmd/csi-sanity

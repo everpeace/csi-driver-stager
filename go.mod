@@ -7,6 +7,7 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/google/uuid v1.1.1
 	github.com/kubernetes-csi/csi-lib-utils v0.7.0 // indirect
+	github.com/kubernetes-csi/csi-test v2.2.0+incompatible // indirect
 	github.com/kubernetes-csi/csi-test/v3 v3.0.0
 	github.com/kubernetes-csi/drivers v1.0.2
 

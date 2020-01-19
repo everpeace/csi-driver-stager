@@ -32,24 +32,41 @@ build: fmt lint
 
 .PHONY: test
 test: fmt lint
-	go test  ./...
+	go test -count=1 ./...
 
+.PHONY: test-debug
 test-debug: fmt lint
 	dlv test --headless --listen=:2345 --api-version=2 $(WHAT)
 
-.PHONY: devcontainer clean-devcontainer
-devcontainer:
+.PHONY: run-driver
+run-driver: build
+	[ ! -e /tmp/$(NAME).sock ] || rm -rf /tmp/$(NAME).sock
+	$(OUTDIR)/$(NAME) --logpretty --loglevel=trace --endpoint=unix:///tmp/$(NAME).sock --nodeid=testnode image
+
+.PHONY: debug-driver
+debug-driver:
+	[ ! -e /tmp/$(NAME).sock ] || rm -rf /tmp/$(NAME).sock
+	dlv debug --headless --listen=:2345 --api-version=2 -- --logpretty=true --loglevel=trace --endpoint=unix:///tmp/$(NAME).sock --nodeid=testnode image
+
+
+# filtering test by ginkgo.focus because the driver provides only Identity/Node Services.
+.PHONY: csi-sanity
+csi-sanity:
+	csi-sanity -ginkgo.v \
+	  -ginkgo.focus "Identity Service|Node Service" \
+	  -csi.endpoint unix:///tmp/$(NAME).sock \
+      -csi.createstagingpathcmd ./scripts/csi-sanity/mkdir.sh \
+      -csi.createmountpathcmd ./scripts/csi-sanity/mkdir.sh \
+      -csi.removestagingpathcmd ./scripts/csi-sanity/mkdir/rmdir.sh \
+      -csi.removemountpathcmd ./scripts/csi-sanity/mkdir/rmdir.sh
+
+.PHONY: build-devcontainer devcontainer clean-devcontainer
+build-devcontainer:
+	cd .devcontainer && docker-compose build
+devcontainer: build-devcontainer
 	cd .devcontainer && docker-compose up -d
 clean-devcontainer:
 	cd .devcontainer && docker-compose down -v
-
-.PHONY: test-in-devcontainer
-test-in-devcontainer: devcontainer
-	cd .devcontainer && docker-compose exec workspace make test
-
-.PHONY: test-debug-in-devcontainer
-test-debug-in-devcontainer: devcontainer
-	cd .devcontainer && docker-compose exec workspace make test-debug WHAT=$(WHAT)
 
 .PHONY: clean
 clean:
