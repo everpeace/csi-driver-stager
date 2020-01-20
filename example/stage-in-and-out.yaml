@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: stage-in-and-out
+spec:
+  restartPolicy: Never
+  containers:
+    - name: main
+      image: busybox
+      command: ["touch", "/data/hello"]
+      volumeMounts:
+        - name: data
+          mountPath: /data
+  volumes:
+    - name: data
+      csi:
+        driver: image.stager.csi.k8s.io
+        nodePublishSecretRef:
+          # you need create this secret first
+          name: dockercred
+        volumeAttributes:
+          stage-in/image: busybox:latest
+          stage-out/repository: everpeace/misc
+          stage-out/tagGenerator: template
+          stage-out/tagGeneratorArg: "{{.podNamespace}}-{{.podName}}-{{.timestamp}}"

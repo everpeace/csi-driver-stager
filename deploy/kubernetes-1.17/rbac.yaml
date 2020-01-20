@@ -1,0 +1,21 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: csi-imagestager-plugin
+rules:
+  - apiGroups: [""] # "" indicates the core API group
+    resources: ["events"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: csi-imagestager-plugin
+subjects:
+  - kind: ServiceAccount
+    namespace: csi-imagestager-plugin
+    name: default
+roleRef:
+  kind: ClusterRole
+  name: csi-imagestager-plugin
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,99 @@
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  namespace: csi-imagestager-plugin
+  name: csi-imagestager-plugin
+spec:
+  selector:
+    matchLabels:
+      app: csi-imagestager-plugin
+  template:
+    metadata:
+      labels:
+        app: csi-imagestager-plugin
+    spec:
+      hostNetwork: true
+      containers:
+        - name: node-driver-registrar
+          image: quay.io/k8scsi/csi-node-driver-registrar:v1.2.0
+          imagePullPolicy: IfNotPresent
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "rm -rf /registration/csi-image-stager /registration/csi-image-stager-reg.sock"]
+          args:
+            - --v=5
+            - --csi-address=/csi/csi.sock
+            - --kubelet-registration-path=/var/lib/kubelet/plugins/csi-image-stager/csi.sock
+          env:
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          volumeMounts:
+          - mountPath: /csi
+            name: socket-dir
+          - mountPath: /registration
+            name: registration-dir
+
+        - name: image
+          image: everpeace/csi-driver-stager:0.0.1-dev
+          ports:
+            - containerPort: 2345
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "rm -rf $(CSI_ENDPOINT)"]
+          args:
+            - "--loglevel=debug"
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--nodeid=$(KUBE_NODE_NAME)"
+            - "image"
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            # buildah needs privileged container to work
+            privileged: true
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: /var/lib/kubelet/pods
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
+            - mountPath: /var/lib/containers/storage
+              mountPropagation: Bidirectional
+              name: storageroot-dir
+            - mountPath: /var/run/containers/storage
+              mountPropagation: Bidirectional
+              name: storagerunroot-dir
+
+      volumes:
+        - hostPath:
+            path: /var/lib/kubelet/plugins/csi-image-stager
+            type: DirectoryOrCreate
+          name: socket-dir
+        - hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
+          name: mountpoint-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins_registry
+            type: Directory
+          name: registration-dir
+        - hostPath:
+            path: /var/lib/containers/storage
+            type: DirectoryOrCreate
+          name: storageroot-dir
+        - hostPath:
+            path: /var/run/containers/storage
+            type: DirectoryOrCreate
+          name: storagerunroot-dir
+
