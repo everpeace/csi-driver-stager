@@ -2,6 +2,8 @@ package image
 
 import (
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/record"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -15,6 +17,15 @@ import (
 type Stager struct {
 	Buildah  *buildah.Client
 	GcPeriod time.Duration
+	Recorder record.EventRecorder
+}
+
+func (stager *Stager) publishEventIfSupported(vol *Volume, reason, message string) {
+	if stager.Recorder == nil {
+		zlog.Warn().Interface("ObjectMeta", vol.podMeta).Str("Reason", reason).Str("EventMessage", message).Msg("skip publishing event")
+		return
+	}
+	stager.Recorder.Eventf(&corev1.Pod{ObjectMeta: vol.podMeta}, corev1.EventTypeNormal, reason, message)
 }
 
 func (stager *Stager) StageIn(vol *Volume) error {
@@ -28,9 +39,14 @@ func (stager *Stager) StageIn(vol *Volume) error {
 			vol.Phase = PhaseContainerCreated
 			return stager.StageIn(vol)
 		}
+
+		stager.publishEventIfSupported(vol, "StageInStarted", fmt.Sprintf("volumeID=%s image=%s", vol.VolumeID, vol.Spec.StageInSpec.Image))
 		if err := stager.Buildah.From(vol.VolumeID, vol.Spec.StageInSpec.Image, vol.DockerConfigJson, vol.Spec.StageInSpec.TlsVerify); err != nil {
+			stager.publishEventIfSupported(vol, "StageInFailed", fmt.Sprintf("volumeID=%s image=%s error=%s", vol.VolumeID, vol.Spec.StageInSpec.Image, err.Error()))
 			return errors.Wrapf(err, "can't create Buildah container(name=%s)", vol.VolumeID)
 		}
+		stager.publishEventIfSupported(vol, "StageInSucceeded", fmt.Sprintf("volumeID=%s image=%s", vol.VolumeID, vol.Spec.StageInSpec.Image))
+
 		vol.Phase = PhaseContainerCreated
 		return stager.StageIn(vol)
 
@@ -126,8 +142,10 @@ func (stager *Stager) StageOut(vol *Volume) error {
 		return stager.StageOut(vol)
 	case PhaseContainerUnMounted:
 		if err := stager.Buildah.Push(vol.VolumeID, vol.ImageToPush, vol.DockerConfigJson, vol.Spec.StageOutSpec.TlsVerify); err != nil {
+			stager.publishEventIfSupported(vol, "StageOutFailed", fmt.Sprintf("volumeID=%s image=%s error=%s", vol.VolumeID, vol.ImageToPush, err.Error()))
 			return errors.Wrapf(err, "can't push image(=%s)", vol.ImageToPush)
 		}
+		stager.publishEventIfSupported(vol, "StageOutSucceeded", fmt.Sprintf("volumeID=%s image=%s", vol.VolumeID, vol.ImageToPush))
 		vol.Phase = PhaseContainerImagePushed
 		return stager.StageOut(vol)
 	case PhaseContainerImagePushed:

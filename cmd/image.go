@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"os"
 	"os/signal"
 	"syscall"
@@ -34,20 +37,27 @@ var imageCmd = &cobra.Command{
 			Interface("Options", &Options).
 			Msg("Starting")
 
-		//config, err := clientcmd.BuildConfigFromFlags(Options.MasterURL, Options.Kubeconfig)
-		//if err != nil {
-		//	panic(err.Error())
-		//}
-		//kubeClient, err := kubernetes.NewForConfig(rest.AddUserAgent(config, "csi-driver-stager"))
-		//if err != nil {
-		//	panic(err.Error())
-		//}
+		config, err := clientcmd.BuildConfigFromFlags(Options.MasterURL, Options.Kubeconfig)
+		if err != nil {
+			zlog.Warn().Msg("failed to build kubernetes config.")
+		}
+		var kubeClient kubernetes.Interface
+		if config != nil {
+			kubeClient, err = kubernetes.NewForConfig(rest.AddUserAgent(config, "csi-driver-stager"))
+			if err != nil {
+				panic(err.Error())
+			}
+		}
+
+		if kubeClient == nil {
+			zlog.Warn().Msg("failed to create kubernetes client.")
+		}
 
 		driver := imagedriver.NewDriver(
 			Version, Options.NodeID, Options.Endpoint, Options.Image.DefaultStageInImage,
 			Options.Image.BuildahPath, Options.Image.BuildahTimeout,
 			Options.Image.BuildahGcTimeout, Options.Image.BuildahGcPeriod,
-			nil, clock.RealClock{},
+			kubeClient, clock.RealClock{},
 		)
 
 		signalCh := make(chan os.Signal)

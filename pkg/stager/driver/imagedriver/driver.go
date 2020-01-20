@@ -2,13 +2,17 @@ package imagedriver
 
 import (
 	"context"
+	"github.com/golang/glog"
+	"k8s.io/client-go/tools/record"
 	"net"
 	"os"
 	"time"
 
-	"k8s.io/utils/clock"
-
 	"github.com/everpeace/csi-driver-stager/pkg/stager/image"
+	corev1 "k8s.io/api/core/v1"
+	clientgokubescheme "k8s.io/client-go/kubernetes/scheme"
+	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/utils/clock"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/everpeace/csi-driver-stager/pkg/stager/image/buildah"
@@ -30,6 +34,7 @@ type Driver struct {
 
 	srv        *grpc.Server
 	kubeClient kubernetes.Interface
+	recorder   record.EventRecorder
 
 	stager *image.Stager
 
@@ -48,13 +53,25 @@ func NewDriver(
 		Str("NodeID", nodeID).
 		Msg("initialing driver")
 
+	var recorder record.EventRecorder
+	if kubeClient != nil {
+		eventBroadcaster := record.NewBroadcaster()
+		eventBroadcaster.StartLogging(glog.Infof)
+		eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
+		recorder = eventBroadcaster.NewRecorder(clientgokubescheme.Scheme, corev1.EventSource{Component: DriverName})
+	} else {
+		zlog.Warn().Msg("the driver won't publish any kubernetes events because it is initialized without kubernetes client")
+	}
+
 	return &Driver{
 		clock:               clock,
 		vendorVesion:        vendorVesion,
 		endpoint:            endpoint,
 		nodeID:              nodeID,
 		kubeClient:          kubeClient,
+		recorder:            recorder,
 		defaultStageInImage: defaultStageInImage,
+		statuses:            map[string]*image.Volume{},
 		stager: &image.Stager{
 			Buildah: &buildah.Client{
 				DriverName: DriverName,
@@ -63,6 +80,7 @@ func NewDriver(
 				GcTimeout:  buildahGcTimeout,
 			},
 			GcPeriod: buildahGcPeriod,
+			Recorder: recorder,
 		},
 	}
 }
